@@ -17,6 +17,8 @@
 # limitations under the License.
 #
 
+import logging
+import os
 from xml.etree import ElementTree as ET
 from nomad.datamodel.datamodel import EntryArchive
 from nomad.datamodel.metainfo.basesections import System
@@ -26,10 +28,6 @@ from nomad.parsing.parser import Parser
 
 
 class MolproXMLOutParser(Parser):
-    def __init__(self):
-        self._root = ET.parse(mainfile).getroot()
-        pass
-
     @property
     def program(self) -> Program:
         """Parse the program from the xml file."""
@@ -70,14 +68,28 @@ class MolproXMLOutParser(Parser):
 
         return connectivity
 
-    def parse(self, mainfile: str, archive: EntryArchive, logger) -> EntryArchive:
+    def parse(self, filepath: str, archive: EntryArchive, logger) -> EntryArchive:
         """Build up the archive from pre-defined sections."""
-        self.archive = archive
-        self.logger = logger
 
+        self._root = ET.parse(filepath).getroot()
         self.archive.run.append(Run())
         self.archive.run[0].program = self.program
         system = System(atoms=self.atoms, atoms_group=self.connectivity)
         self.archive.run[0].system.append(system)
 
         return self.archive
+
+
+class MolproParser(Parser):
+    def init_parser(self, filepath: str, logger):
+        """Decide on which parser to use.
+        Set up logging and the working directory."""
+        self.maindir = os.path.dirname(os.path.abspath(filepath))
+        self.logger = logging.getLogger(__name__) if logger is None else logger
+        if filepath.endswith(".xml"):
+            self.parser = MolproXMLOutParser()
+
+    def parse(self, filepath: str, archive: EntryArchive, logger) -> EntryArchive:
+        """Build up the archive from pre-defined sections."""
+        self.init_parser(filepath, logger)
+        return self.parser.parse(filepath, archive, self.logger)
