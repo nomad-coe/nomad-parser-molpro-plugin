@@ -31,25 +31,31 @@ m_package = Package()
 
 
 class MolproXMLOutParser:
-    def find_tag(self, tag_name: str, element=None):
+    def find_tags(self, tag_name: str, element=None, results=None) -> list:
         if element is None:
             element = self._root
+        if results is None:
+            results = []
+        # Check if the current element matches the tag_name
         if element.tag.endswith(tag_name):
-            return element
+            results.append(element)
+        # Recursively search in child elements
         for child in element:
-            result = self.find_tag(tag_name, child)
-            if result is not None:
-                return result
-        return None
+            self.find_tags(tag_name, child, results)
+        return results
 
     # TODO: consider storing deeply nested tags upon extraction
+    def extracted_atoms(self):
+        if not hasattr(self, "_extracted_atoms"):
+            self._extracted_atoms = self.find_tags("atom")
+        return self._extracted_atoms
 
     @property
     def program(self) -> Program:
         """Parse the program from the xml file."""
         program: Program = Program()
         program.name = "Molpro"
-        version_tag = self.find_tag("version")
+        version_tag = self.find_tags("version")[0]
         try:
             program.version = (
                 f'{version_tag.attrib["major"]}.{version_tag.attrib["minor"]}'
@@ -65,11 +71,13 @@ class MolproXMLOutParser:
         """Parse the atoms from the xml file."""
         atoms: Atoms = Atoms()
 
-        for atom in self.find_tag("atom"):
-            atoms.labels.append(atom.attrib["elementType"])
-            atoms.positions.append(
-                [float(atom.attrib[f"{x}3"]) for x in ["x", "y", "z"]]
-            )
+        if len(self.extracted_atoms()):
+            atoms.labels, atoms.positions = [], []
+            for atom in self.find_tags("atom"):
+                atoms.labels.append(atom.attrib["elementType"])
+                atoms.positions.append(
+                    [float(atom.attrib[f"{x}3"]) for x in ["x", "y", "z"]]
+                )
 
         return atoms
 
@@ -80,9 +88,9 @@ class MolproXMLOutParser:
 
         convert_id = lambda x: int(x[1:])  # id-format: "a1" -> 1
         connectivity.label = "all"
-        for atom in self.find_tag("atom"):
+        for atom in self.find_tags("atom"):
             connectivity.atom_indices.append(convert_id(atom.attrib["id"]))
-        for bond in self.find_tag("bond"):
+        for bond in self.find_tags("bond"):
             connectivity.bonds.append(
                 [convert_id(x) for x in bond.attrib["atomRefs2"].split()]
             )
