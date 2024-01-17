@@ -19,24 +19,45 @@
 
 import logging
 import os
+from typing import Iterable, Optional, Union
 from xml.etree import ElementTree as ET
 from nomad.datamodel.datamodel import EntryArchive
-from nomad.datamodel.metainfo.basesections import System
 from nomad.datamodel.metainfo.simulation.run import Program, Run
-from nomad.datamodel.metainfo.simulation.system import Atoms, AtomsGroup
-from nomad.parsing.parser import Parser
+from nomad.datamodel.metainfo.simulation.system import System, Atoms, AtomsGroup
+from nomad.metainfo import Quantity, Package
 
 
-class MolproXMLOutParser(Parser):
+m_package = Package()
+
+
+class MolproXMLOutParser:
+    def find_tag(self, tag_name: str, element=None):
+        if element is None:
+            element = self._root
+        if element.tag.endswith(tag_name):
+            return element
+        for child in element:
+            result = self.find_tag(tag_name, child)
+            if result is not None:
+                return result
+        return None
+
+    # TODO: consider storing deeply nested tags upon extraction
+
     @property
     def program(self) -> Program:
         """Parse the program from the xml file."""
         program: Program = Program()
         program.name = "Molpro"
-        version_tag = self._root.iter["version"]
-        program.version = version_tag.text()
-        program.version_internal = version_tag.attrib["SHA"]
-        # program.compilation_datetime?
+        version_tag = self.find_tag("version")
+        try:
+            program.version = (
+                f'{version_tag.attrib["major"]}.{version_tag.attrib["minor"]}'
+            )
+            program.version_internal = version_tag.attrib["SHA"]
+            # program.compilation_datetime?
+        except KeyError:
+            self.logger.warning("Could not parse Molpro version information.")
         return program
 
     @property
@@ -44,7 +65,7 @@ class MolproXMLOutParser(Parser):
         """Parse the atoms from the xml file."""
         atoms: Atoms = Atoms()
 
-        for atom in self._root.iter("cml:atom"):
+        for atom in self.find_tag("atom"):
             atoms.labels.append(atom.attrib["elementType"])
             atoms.positions.append(
                 [float(atom.attrib[f"{x}3"]) for x in ["x", "y", "z"]]
@@ -59,9 +80,9 @@ class MolproXMLOutParser(Parser):
 
         convert_id = lambda x: int(x[1:])  # id-format: "a1" -> 1
         connectivity.label = "all"
-        for atom in self._root.iter("cml:atom"):
+        for atom in self.find_tag("atom"):
             connectivity.atom_indices.append(convert_id(atom.attrib["id"]))
-        for bond in self._root.iter("cml:bond"):
+        for bond in self.find_tag("bond"):
             connectivity.bonds.append(
                 [convert_id(x) for x in bond.attrib["atomRefs2"].split()]
             )
@@ -70,26 +91,25 @@ class MolproXMLOutParser(Parser):
 
     def parse(self, filepath: str, archive: EntryArchive, logger) -> EntryArchive:
         """Build up the archive from pre-defined sections."""
-
         self._root = ET.parse(filepath).getroot()
-        self.archive.run.append(Run())
-        self.archive.run[0].program = self.program
-        system = System(atoms=self.atoms, atoms_group=self.connectivity)
-        self.archive.run[0].system.append(system)
+        self.logger = logger
 
-        return self.archive
+        archive.run.append(Run())
+        sec_run = archive.run[0]
+
+        sec_run.program = self.program
+        sec_run.system.append(System(atoms=self.atoms, atoms_group=[self.connectivity]))
+
+        return archive
 
 
-class MolproParser(Parser):
-    def init_parser(self, filepath: str, logger):
-        """Decide on which parser to use.
-        Set up logging and the working directory."""
-        self.maindir = os.path.dirname(os.path.abspath(filepath))
-        self.logger = logging.getLogger(__name__) if logger is None else logger
-        if filepath.endswith(".xml"):
-            self.parser = MolproXMLOutParser()
+class MolproParser:
+    def __init__(self):
+        self.parser = MolproXMLOutParser()
 
     def parse(self, filepath: str, archive: EntryArchive, logger) -> EntryArchive:
         """Build up the archive from pre-defined sections."""
-        self.init_parser(filepath, logger)
-        return self.parser.parse(filepath, archive, self.logger)
+        return self.parser.parse(filepath, archive, logger)
+
+
+m_package.__init_metainfo__()
