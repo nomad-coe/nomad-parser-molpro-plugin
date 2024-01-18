@@ -24,8 +24,8 @@ from xml.etree import ElementTree as ET
 from nomad.datamodel.datamodel import EntryArchive
 from nomad.datamodel.metainfo.simulation.run import Program, Run
 from nomad.datamodel.metainfo.simulation.system import System, Atoms, AtomsGroup
-from nomad.metainfo import Quantity, Package
-
+from nomad.metainfo import Package
+from nomad.units import ureg
 
 m_package = Package()
 
@@ -69,33 +69,28 @@ class MolproXMLOutParser:
     @property
     def atoms(self) -> Atoms:
         """Parse the atoms from the xml file."""
-        atoms: Atoms = Atoms()
-
         if len(self.extracted_atoms()):
-            atoms.labels, atoms.positions = [], []
+            labels: list[str] = []
+            positions: list[list[float]] = []
             for atom in self.find_tags("atom"):
-                atoms.labels.append(atom.attrib["elementType"])
-                atoms.positions.append(
-                    [float(atom.attrib[f"{x}3"]) for x in ["x", "y", "z"]]
-                )
+                labels.append(atom.attrib["elementType"])
+                positions.append([float(atom.attrib[f"{x}3"]) for x in ["x", "y", "z"]])
 
-        return atoms
+        return Atoms(labels=labels, positions=positions * ureg.angstrom)
 
     @property
     def connectivity(self) -> AtomsGroup:  # TODO: abstract out to any kind of `System`
         """Parse the atom indices and bonds for the entire system."""
-        connectivity: AtomsGroup = AtomsGroup()
-
         convert_id = lambda x: int(x[1:])  # id-format: "a1" -> 1
-        connectivity.label = "all"
-        for atom in self.find_tags("atom"):
-            connectivity.atom_indices.append(convert_id(atom.attrib["id"]))
-        for bond in self.find_tags("bond"):
-            connectivity.bonds.append(
-                [convert_id(x) for x in bond.attrib["atomRefs2"].split()]
-            )
+        atom_indices: list[int] = []
+        bond_list: list[list[int]] = []
 
-        return connectivity
+        for atom in self.find_tags("atom"):
+            atom_indices.append(convert_id(atom.attrib["id"]))
+        for bond in self.find_tags("bond"):
+            bond_list.append([convert_id(x) for x in bond.attrib["atomRefs2"].split()])
+
+        return AtomsGroup(atom_indices=atom_indices, bond_list=bond_list, label="all")
 
     def parse(self, filepath: str, archive: EntryArchive, logger) -> EntryArchive:
         """Build up the archive from pre-defined sections."""
