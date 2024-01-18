@@ -79,7 +79,9 @@ class MolproXMLOutParser:
         return Atoms(labels=labels, positions=positions * ureg.angstrom)
 
     @property
-    def connectivity(self) -> AtomsGroup:  # TODO: abstract out to any kind of `System`
+    def all_atoms_group(
+        self,
+    ) -> AtomsGroup:  # TODO: abstract out to any kind of `System`
         """Parse the atom indices and bonds for the entire system."""
         convert_id = lambda x: int(x[1:])  # id-format: "a1" -> 1
         atom_indices: list[int] = []
@@ -101,7 +103,9 @@ class MolproXMLOutParser:
         sec_run = archive.run[0]
 
         sec_run.program = self.program
-        sec_run.system.append(System(atoms=self.atoms, atoms_group=[self.connectivity]))
+        sec_run.system.append(
+            System(atoms=self.atoms, atoms_group=[self.all_atoms_group])
+        )
 
         return archive
 
