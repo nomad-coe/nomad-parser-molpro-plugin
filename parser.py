@@ -26,6 +26,8 @@ from nomad.datamodel.data import ArchiveSection
 from nomad.datamodel.datamodel import EntryArchive
 from nomad.datamodel.metainfo.annotations import ELNAnnotation
 from nomad.datamodel.metainfo.basesections import ExtendedAnalysisResult
+from nomad.datamodel.metainfo.simulation.calculation import Calculation
+from nomad.datamodel.metainfo.simulation.method import Method, DFT
 from nomad.datamodel.metainfo.simulation.run import Program, Run
 from nomad.datamodel.metainfo.simulation.system import System, Atoms, AtomsGroup
 from nomad.metainfo import Package
@@ -78,14 +80,17 @@ class MolproXMLOutParser:
     @property
     def atoms(self) -> Atoms:
         """Parse the atoms from the xml file."""
+        labels: list[str] = []
+        positions: list[list[float]] = []
+
         if len(self.extracted_atoms()):
-            labels: list[str] = []
-            positions: list[list[float]] = []
             for atom in self.find_tags("atom"):
                 labels.append(atom.attrib["elementType"])
                 positions.append([float(atom.attrib[f"{x}3"]) for x in ["x", "y", "z"]])
 
-        return Atoms(labels=labels, positions=positions * ureg.angstrom)
+        return Atoms(
+            labels=labels, positions=positions * ureg.angstrom, periodic=[False] * 3
+        )
 
     @property
     def all_atoms_group(
@@ -97,7 +102,7 @@ class MolproXMLOutParser:
         bond_list: list[list[int]] = []
 
         for atom in self.find_tags("atom"):
-            atom_indices.append(convert_id(atom.attrib["id"]))
+            atom_indices.append(convert_id(atom.attrib["id"]) - 1)
         for bond in self.find_tags("bond"):
             bond_list.append([convert_id(x) for x in bond.attrib["atomRefs2"].split()])
 
@@ -125,8 +130,13 @@ class MolproXMLOutParser:
 
         sec_run.program = self.program
         sec_run.system.append(
-            System(atoms=self.atoms, atoms_group=[self.all_atoms_group])
+            System(
+                atoms=self.atoms,
+                atoms_group=[self.all_atoms_group],
+                is_representative=True,
+            )
         )
+        sec_run.calculation.append(Calculation())
 
         archive.data = ExtendedAnalysisResult(
             name="User-requested post-analysis", description=self.user_table_str
