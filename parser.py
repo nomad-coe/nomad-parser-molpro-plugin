@@ -103,6 +103,18 @@ class MolproXMLOutParser:
 
         return AtomsGroup(atom_indices=atom_indices, bond_list=bond_list, label="all")
 
+    @property
+    def user_table_str(self) -> str:
+        """Parse the user table from the xml file."""
+        user_tables = self.find_tags("table")
+        if len(user_tables) > 1:
+            self.logger.warning("Found more than one user table. Using the first one.")
+
+        user_table = self.find_tags("table")[0]
+        self.remove_namespace(user_table)
+        user_table.attrib["border"] = "1"
+        return ET.tostring(user_table, encoding="unicode", method="html")
+
     def parse(self, filepath: str, archive: EntryArchive, logger) -> EntryArchive:
         """Build up the archive from pre-defined sections."""
         self._root = ET.parse(filepath).getroot()
@@ -116,15 +128,9 @@ class MolproXMLOutParser:
             System(atoms=self.atoms, atoms_group=[self.all_atoms_group])
         )
 
-        user_table = self.find_tags("table")[0]
-        self.remove_namespace(user_table)
-        user_table.attrib["border"] = "1"
-        user_table_str = ET.tostring(
-            user_table,
-            encoding="unicode",
-            method="html",
+        archive.data = ExtendedAnalysisResult(
+            name="User-requested post-analysis", description=self.user_table_str
         )
-        archive.data = ExtendedAnalysisResult(description=user_table_str)
 
         return archive
 
