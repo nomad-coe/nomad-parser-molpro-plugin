@@ -19,12 +19,17 @@
 
 import logging
 import os
+import re
 from typing import Iterable, Optional, Union
 from xml.etree import ElementTree as ET
+from nomad.datamodel.data import ArchiveSection
 from nomad.datamodel.datamodel import EntryArchive
+from nomad.datamodel.metainfo.annotations import ELNAnnotation
+from nomad.datamodel.metainfo.basesections import ExtendedAnalysisResult
 from nomad.datamodel.metainfo.simulation.run import Program, Run
 from nomad.datamodel.metainfo.simulation.system import System, Atoms, AtomsGroup
 from nomad.metainfo import Package
+from nomad.metainfo.metainfo import Quantity
 from nomad.units import ureg
 
 m_package = Package()
@@ -43,6 +48,10 @@ class MolproXMLOutParser:
         for child in element:
             self.find_tags(tag_name, child, results)
         return results
+
+    def remove_namespace(self, tree):
+        for elem in tree.iter():
+            elem.tag = elem.tag.split("}")[-1]
 
     # TODO: consider storing deeply nested tags upon extraction
     def extracted_atoms(self):
@@ -106,6 +115,16 @@ class MolproXMLOutParser:
         sec_run.system.append(
             System(atoms=self.atoms, atoms_group=[self.all_atoms_group])
         )
+
+        user_table = self.find_tags("table")[0]
+        self.remove_namespace(user_table)
+        user_table.attrib["border"] = "1"
+        user_table_str = ET.tostring(
+            user_table,
+            encoding="unicode",
+            method="html",
+        )
+        archive.data = ExtendedAnalysisResult(description=user_table_str)
 
         return archive
 
