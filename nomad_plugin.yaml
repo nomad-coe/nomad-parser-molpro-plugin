@@ -11,7 +11,7 @@ metadata:
   parserSpecific: ''
   preamble: ''
   status: production
-  tableOfFiles: '|Input Filename| Description|
+  tableOfFiles: '|Input Filename | Description|
 
     |--- | --- |
 
@@ -20,6 +20,6 @@ metadata:
     '
 
 name: parsers/molpro
-parser_class_name: electronicparsers.molpro.parser.MolproParser
+parser_class_name: electronicparsers.molpro.molproparser.parser.MolproParser
 python_package: nomad-parser-molpro-plugin
 plugin_source_code_url: https://github.com/nomad-coe/nomad-parser-molpro-plugin
