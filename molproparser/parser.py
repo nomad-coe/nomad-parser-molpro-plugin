@@ -187,7 +187,7 @@ class MolproXMLOutParser:
         sec_run.calculation.append(Calculation())
 
         archive.data = AnalysisResult(
-            name="User-requested post-analysis", outcome=self.user_table_str
+            name="User-requested post-analysis", outcome=[self.user_table_str]
         )
 
         return archive
