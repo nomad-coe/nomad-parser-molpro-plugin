@@ -17,21 +17,13 @@
 # limitations under the License.
 #
 
-import logging
-import os
-import re
-from typing import Iterable, Optional, Union
 from xml.etree import ElementTree as ET
-from nomad.datamodel.data import ArchiveSection
 from nomad.datamodel.datamodel import EntryArchive
-from nomad.datamodel.metainfo.annotations import ELNAnnotation
-from nomad.datamodel.metainfo.basesections import ExtendedAnalysisResult
+from nomad.datamodel.metainfo.basesections import AnalysisResult
 from nomad.datamodel.metainfo.simulation.calculation import Calculation
-from nomad.datamodel.metainfo.simulation.method import Method, DFT
 from nomad.datamodel.metainfo.simulation.run import Program, Run
 from nomad.datamodel.metainfo.simulation.system import System, Atoms, AtomsGroup
 from nomad.metainfo import Package
-from nomad.metainfo.metainfo import Quantity
 from nomad.units import ureg
 
 m_package = Package()
@@ -138,8 +130,8 @@ class MolproXMLOutParser:
         )
         sec_run.calculation.append(Calculation())
 
-        archive.data = ExtendedAnalysisResult(
-            name="User-requested post-analysis", description=self.user_table_str
+        archive.data = AnalysisResult(
+            name="User-requested post-analysis", outcome=self.user_table_str
         )
 
         return archive
