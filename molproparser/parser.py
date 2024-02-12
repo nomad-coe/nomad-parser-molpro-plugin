@@ -19,7 +19,7 @@
 
 from nomad.datamodel.datamodel import EntryArchive
 from nomad.metainfo import Package
-from xml_parser import MolproXMLOutParser
+from .xml_parser import MolproXMLOutParser
 
 m_package = Package()
 

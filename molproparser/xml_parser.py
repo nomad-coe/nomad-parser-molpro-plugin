@@ -19,7 +19,7 @@
 
 from xml.etree import ElementTree as ET
 from nomad.datamodel.datamodel import EntryArchive
-from nomad.datamodel.metainfo.basesections import AnalysisResult
+from nomad.datamodel.metainfo.basesections import Analysis, AnalysisResult
 from nomad.datamodel.metainfo.simulation.calculation import Calculation
 from nomad.datamodel.metainfo.simulation.run import Program, Run
 from nomad.datamodel.metainfo.simulation.system import System, Atoms, AtomsGroup
@@ -182,8 +182,14 @@ class MolproXMLOutParser:
         )
         sec_run.calculation.append(Calculation())
 
-        archive.data = AnalysisResult(
-            name="User-requested post-analysis", outcome=[self.user_table_str]
+        archive.data = Analysis(
+            name="Molpro output",
+            outputs=[
+                AnalysisResult(
+                    name="User-requested post-analysis",
+                    outcome=self.user_table_str,
+                ),
+            ],
         )
 
         return archive
